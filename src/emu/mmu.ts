@@ -1,18 +1,49 @@
-export class Memory {
-  // --- Sizes ---
-  private ROM_BANK_0 = new Uint8Array(0x4000); // 0x0000–0x3FFF
-  private ROM_BANK_N = new Uint8Array(0x4000); // 0x4000–0x7FFF
-  private VRAM = new Uint8Array(0x2000); // 0x8000–0x9FFF
-  private EXTERNAL_RAM = new Uint8Array(0x2000); // 0xA000–0xBFFF
-  private WRAM = new Uint8Array(0x2000); // 0xC000–0xDFFF
-  //   private ECHO_RAM = new Uint8Array(0x1e00); // 0xE000–0xFDFF (mirror de WRAM)
-  private OAM = new Uint8Array(0xa0); // 0xFE00–0xFE9F
-  private IO = new Uint8Array(0x80); // 0xFF00–0xFF7F
-  private HRAM = new Uint8Array(0x7f); // 0xFF80–0xFFFE
-  private interruptEnable = 0x00; // 0xFFFF
+import { APU_MASK } from "../utils/const/apu.const";
+import type { Cartridge } from "./cartridge";
+import type { PPU } from "./ppu";
 
-  constructor() {
-    // Cargar ROM en los primeros 32KB (bank 0 + bank N)
+type IOHandler = {
+  read: () => number;
+  write: (v: number) => void;
+};
+
+export class MMU {
+  // --- Sizes --
+  private interruptEnable = 0x00; // 0xFFFF
+  private interruptFlags = 0;
+
+  constructor(
+    private rom: Cartridge,
+    private ppu: PPU,
+    private apu: APU,
+    private timer: Timer,
+    private serial: Serial,
+    private joypad: Joypad,
+    private wram = new Uint8Array(0x2000), // 8KB
+    private hram = new Uint8Array(0x7f) // 127B
+  ) {
+    this.loadAPUMask();
+  }
+
+  public registerIO(addr: number, handler: IOHandler) {
+    this.ioHandlers.set(addr & 0xff, handler);
+  }
+
+  public readIO(addr: number): number {
+    const off = addr - 0xff00;
+    const handler = this.ioHandlers.get(off);
+    if (handler) return handler.read();
+    return this.IO[off];
+  }
+
+  public writeIO(addr: number, value: number) {
+    const off = addr - 0xff00;
+    const handler = this.ioHandlers.get(off);
+    if (handler) {
+      handler.write(value);
+    } else {
+      this.IO[off] = value;
+    }
   }
 
   loadRom(romData: Uint8Array) {
@@ -21,7 +52,8 @@ export class Memory {
   }
 
   readByte(addr: number): number {
-    addr &= 0xffff;
+    addr &= 0xffff; // 16 bits mask
+
     if (addr < 0x4000) return this.ROM_BANK_0[addr];
     if (addr < 0x8000) return this.ROM_BANK_N[addr - 0x4000];
     if (addr < 0xa000) return this.VRAM[addr - 0x8000];
@@ -41,10 +73,14 @@ export class Memory {
   }
 
   writeByte(addr: number, value: number) {
-    addr &= 0xffff;
-    value &= 0xff;
+    addr &= 0xffff; //16 bits mask
+    value &= 0xff; // 8 bits mask
 
-    if (addr < 0x8000) return; // ROM
+    if (addr < 0x8000) {
+      console.warn("Attempt to write to ROM at address", addr.toString(16));
+
+      return;
+    } // ROM
     if (addr < 0xa000) {
       this.VRAM[addr - 0x8000] = value;
       return;
@@ -91,7 +127,7 @@ export class Memory {
     return (high << 8) | low;
   }
 
-  reset() {
+  public reset() {
     this.VRAM.fill(0);
     this.EXTERNAL_RAM.fill(0);
     this.WRAM.fill(0);
@@ -99,56 +135,16 @@ export class Memory {
     this.IO.fill(0);
     this.HRAM.fill(0);
     this.interruptEnable = 0;
+
+    this.IO.fill(0);
+    this.loadAPUMask();
+  }
+
+  private loadAPUMask() {
+    const apuMask = APU_MASK;
+
+    for (let i = 0; i < apuMask.length; i++) {
+      this.IO[0x10 + i] = apuMask[i]; // 0xFF10–0xFF3F
+    }
   }
 }
-
-const apuMask = [
-  0x80,
-  0x3f,
-  0x00,
-  0xff,
-  0xbf, // NR10-NR15
-  0xff,
-  0x3f,
-  0x00,
-  0xff,
-  0xbf, // NR20-NR25
-  0x7f,
-  0xff,
-  0x9f,
-  0xff,
-  0xbf, // NR30-NR35
-  0xff,
-  0xff,
-  0x00,
-  0x00,
-  0xbf, // NR40-NR45
-  0x00,
-  0x00,
-  0x70, // NR50-NR52
-  0xff,
-  0xff,
-  0xff,
-  0xff,
-  0xff,
-  0xff,
-  0xff,
-  0xff,
-  0xff,
-  0x00,
-  0x00,
-  0x00,
-  0x00,
-  0x00,
-  0x00,
-  0x00,
-  0x00, // Wave RAM
-  0x00,
-  0x00,
-  0x00,
-  0x00,
-  0x00,
-  0x00,
-  0x00,
-  0x00,
-];

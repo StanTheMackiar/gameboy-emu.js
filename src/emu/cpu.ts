@@ -1,5 +1,5 @@
 import { CPUStatusEnum } from "../utils/enum/cpu-status.enum";
-import type { Memory, PPU } from "./";
+import type { MMU, PPU } from "./";
 
 export class CPU {
   PC_START = 0x100;
@@ -9,7 +9,7 @@ export class CPU {
   private PC: number;
   public status: CPUStatusEnum;
 
-  constructor(private readonly memory: Memory, private readonly display: PPU) {
+  constructor(private readonly memory: MMU, private readonly display: PPU) {
     this.registers = new Uint8Array(8);
     this.PC = this.PC_START;
     this.status = CPUStatusEnum.RUNNING;
