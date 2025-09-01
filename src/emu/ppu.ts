@@ -1,12 +1,21 @@
-export class Display {
+import type { Memory } from "./memory";
+
+export class PPU {
+  OAM_SIZE = 160; // 160 bytes
   public VIDEO_WIDTH = 160;
   public VIDEO_HEIGHT = 144;
 
+  private oam: Uint8Array;
   private display: Uint8Array;
   private imageData: ImageData;
   private readonly ctx: CanvasRenderingContext2D;
 
-  constructor(canvas: HTMLCanvasElement, private readonly scale: number = 4) {
+  constructor(
+    memory: Memory,
+    canvas: HTMLCanvasElement,
+    private readonly scale: number = 4
+  ) {
+    this.oam = new Uint8Array(this.OAM_SIZE);
     this.display = new Uint8Array(this.VIDEO_WIDTH * this.VIDEO_HEIGHT);
     this.imageData = new ImageData(
       this.VIDEO_WIDTH * this.scale,

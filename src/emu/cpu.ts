@@ -1,23 +1,23 @@
 import { CPUStatusEnum } from "../utils/enum/cpu-status.enum";
-import type { Display, Memory } from "./";
+import type { Memory, PPU } from "./";
 
 export class CPU {
   PC_START = 0x100;
+  CPU_HZ = 4.19 * 1000000; // 4.19 MHz
 
   private registers: Uint8Array;
   private PC: number;
   public status: CPUStatusEnum;
 
-  constructor(
-    private readonly memory: Memory,
-    private readonly display: Display
-  ) {
+  constructor(private readonly memory: Memory, private readonly display: PPU) {
     this.registers = new Uint8Array(8);
     this.PC = this.PC_START;
     this.status = CPUStatusEnum.RUNNING;
   }
 
   public start() {
+    if (this.status === CPUStatusEnum.RUNNING) return;
+
     this.status = CPUStatusEnum.RUNNING;
   }
 

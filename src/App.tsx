@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { GameBoyEmulator } from "./utils/helpers/run-emu.helper";
+import { GameBoyEmulator } from "./emu/gameboy";
 
 function App() {
   const canvas = useRef<HTMLCanvasElement>(null);
@@ -17,7 +17,7 @@ function App() {
         <h6>By: StanTheMackiar</h6>
       </header>
 
-      <canvas ref={canvas}></canvas>
+      <canvas ref={canvas} />
     </>
   );
 }

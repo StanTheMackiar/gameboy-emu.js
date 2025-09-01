@@ -1,10 +1,10 @@
-import { CPU, Display, Memory } from "../../emu";
-import { CPUStatusEnum } from "../enum/cpu-status.enum";
-import type { EmulatorConfig } from "../interfaces/emu-config.interface";
+import { CPUStatusEnum } from "../utils/enum/cpu-status.enum";
+import type { EmulatorConfig } from "../utils/interfaces/emu-config.interface";
+import { CPU, Memory, PPU } from "./";
 
 export class GameBoyEmulator {
   private memory: Memory;
-  private display: Display;
+  private ppu: PPU;
   private cpu: CPU;
 
   config: EmulatorConfig = {
@@ -14,9 +14,9 @@ export class GameBoyEmulator {
 
   constructor(canvas: HTMLCanvasElement) {
     this.memory = new Memory();
-    this.display = new Display(canvas);
 
-    this.cpu = new CPU(this.memory, this.display);
+    this.ppu = new PPU(this.memory, canvas);
+    this.cpu = new CPU(this.memory, this.ppu);
   }
 
   private loop() {
@@ -30,7 +30,7 @@ export class GameBoyEmulator {
       if (status !== CPUStatusEnum.RUNNING) break;
     }
 
-    this.display.render();
+    this.ppu.render();
     requestAnimationFrame(this.loop.bind(this));
   }
 
