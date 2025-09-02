@@ -1,75 +1,60 @@
-import { APU_MASK } from "../utils/const/apu.const";
+import { MEMORY_MAP } from "../utils/const/memory-map.const";
 import type { Cartridge } from "./cartridge";
+import type { APU } from "./io/apu";
+import type { Joypad } from "./io/joypad";
+import type { Serial } from "./io/serial";
+import type { Timer } from "./io/timer";
 import type { PPU } from "./ppu";
-
-type IOHandler = {
-  read: () => number;
-  write: (v: number) => void;
-};
+import type { RAM } from "./ram";
 
 export class MMU {
-  // --- Sizes --
-  private interruptEnable = 0x00; // 0xFFFF
-  private interruptFlags = 0;
-
   constructor(
     private rom: Cartridge,
     private ppu: PPU,
     private apu: APU,
+    private ram: RAM,
     private timer: Timer,
     private serial: Serial,
-    private joypad: Joypad,
-    private wram = new Uint8Array(0x2000), // 8KB
-    private hram = new Uint8Array(0x7f) // 127B
-  ) {
-    this.loadAPUMask();
-  }
-
-  public registerIO(addr: number, handler: IOHandler) {
-    this.ioHandlers.set(addr & 0xff, handler);
-  }
-
-  public readIO(addr: number): number {
-    const off = addr - 0xff00;
-    const handler = this.ioHandlers.get(off);
-    if (handler) return handler.read();
-    return this.IO[off];
-  }
-
-  public writeIO(addr: number, value: number) {
-    const off = addr - 0xff00;
-    const handler = this.ioHandlers.get(off);
-    if (handler) {
-      handler.write(value);
-    } else {
-      this.IO[off] = value;
-    }
-  }
-
-  loadRom(romData: Uint8Array) {
-    this.ROM_BANK_0.set(romData.slice(0, 0x4000));
-    this.ROM_BANK_N.set(romData.slice(0x4000, 0x8000));
-  }
+    private joypad: Joypad
+  ) {}
 
   readByte(addr: number): number {
     addr &= 0xffff; // 16 bits mask
 
-    if (addr < 0x4000) return this.ROM_BANK_0[addr];
-    if (addr < 0x8000) return this.ROM_BANK_N[addr - 0x4000];
-    if (addr < 0xa000) return this.VRAM[addr - 0x8000];
-    if (addr < 0xc000) return this.EXTERNAL_RAM[addr - 0xa000];
-    if (addr < 0xe000) return this.WRAM[addr - 0xc000];
-    if (addr < 0xfe00) return this.WRAM[addr - 0xe000]; // echo RAM
-    if (addr < 0xfea0) return this.OAM[addr - 0xfe00];
-    if (addr < 0xff00) return 0xff;
+    if (addr <= MEMORY_MAP.ROM_0.END) {
+      return this.rom.getRomByte(addr);
+    }
+
+    if (addr <= MEMORY_MAP.ROM_N.END) {
+      return this.rom.getRomByte(addr - MEMORY_MAP.ROM_N.START);
+    }
+
+    if (addr <= MEMORY_MAP.VRAM.END) {
+      return this.ppu.getVRAMByte(addr - MEMORY_MAP.VRAM.START);
+    }
+
+    if (addr <= MEMORY_MAP.EXTERNAL_RAM.END) {
+      return this.rom.getExternalRamByte(addr - MEMORY_MAP.EXTERNAL_RAM.START);
+    }
+
+    if (addr <= MEMORY_MAP.WRAM.END) {
+      return this.ram.getByte(addr - MEMORY_MAP.WRAM.START);
+    }
+
+    if (addr <= MEMORY_MAP.ECHO_RAM.END) {
+      return this.ram.getByte(addr - MEMORY_MAP.ECHO_RAM.START);
+    } // echo RAM
+
+    if (addr <= MEMORY_MAP.OAM.END) {
+      return this.ppu.getOAMByte(addr - MEMORY_MAP.OAM.START);
+    }
+
+    if (addr <= MEMORY_MAP.NOT_USABLE.START) return 0xff;
 
     // --- IO registers ---
-    if (addr === 0xff0f) return this.IO[0x0f]; // IF
-    if (addr < 0xff80) return this.IO[addr - 0xff00];
+    //TODO
 
-    if (addr < 0xffff) return this.HRAM[addr - 0xff80];
-
-    return this.interruptEnable; // IE
+    return 0xff;
   }
 
   writeByte(addr: number, value: number) {
@@ -81,44 +66,7 @@ export class MMU {
 
       return;
     } // ROM
-    if (addr < 0xa000) {
-      this.VRAM[addr - 0x8000] = value;
-      return;
-    }
-    if (addr < 0xc000) {
-      this.EXTERNAL_RAM[addr - 0xa000] = value;
-      return;
-    }
-    if (addr < 0xe000) {
-      this.WRAM[addr - 0xc000] = value;
-      return;
-    }
-    if (addr < 0xfe00) {
-      this.WRAM[addr - 0xe000] = value;
-      return;
-    }
-    if (addr < 0xfea0) {
-      this.OAM[addr - 0xfe00] = value;
-      return;
-    }
-    if (addr < 0xff00) return;
-
-    // --- IO registers ---
-    if (addr === 0xff0f) {
-      this.IO[0x0f] = value;
-      return;
-    } // IF
-    if (addr < 0xff80) {
-      this.IO[addr - 0xff00] = value;
-      return;
-    }
-
-    if (addr < 0xffff) {
-      this.HRAM[addr - 0xff80] = value;
-      return;
-    }
-
-    this.interruptEnable = value; // IE
+    //TODO
   }
 
   readInstruction(addr: number): number {
@@ -128,23 +76,6 @@ export class MMU {
   }
 
   public reset() {
-    this.VRAM.fill(0);
-    this.EXTERNAL_RAM.fill(0);
-    this.WRAM.fill(0);
-    this.OAM.fill(0);
-    this.IO.fill(0);
-    this.HRAM.fill(0);
-    this.interruptEnable = 0;
-
-    this.IO.fill(0);
-    this.loadAPUMask();
-  }
-
-  private loadAPUMask() {
-    const apuMask = APU_MASK;
-
-    for (let i = 0; i < apuMask.length; i++) {
-      this.IO[0x10 + i] = apuMask[i]; // 0xFF10–0xFF3F
-    }
+    //TODO
   }
 }

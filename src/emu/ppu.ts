@@ -1,21 +1,25 @@
-import type { MMU } from "./mmu";
-
 export class PPU {
   public VIDEO_WIDTH = 160;
   public VIDEO_HEIGHT = 144;
+  ADDRESSES = {
+    VRAM: {
+      START: 0x8000,
+      END: 0x9fff,
+    },
+    OAM: {
+      START: 0xfe00,
+      END: 0xfe9f,
+    },
+  };
 
-  private vram = new Uint8Array(0x2000); // 0x8000–0x9FFF
+  private VRAM = new Uint8Array(0x2000); // 0x8000–0x9FFF
   private OAM = new Uint8Array(0xa0); // 0xFE00–0xFE9F
 
   private display: Uint8Array;
   private imageData: ImageData;
   private readonly ctx: CanvasRenderingContext2D;
 
-  constructor(
-    memory: MMU,
-    canvas: HTMLCanvasElement,
-    private readonly scale: number = 4
-  ) {
+  constructor(canvas: HTMLCanvasElement, private readonly scale: number = 4) {
     this.display = new Uint8Array(this.VIDEO_WIDTH * this.VIDEO_HEIGHT);
     this.imageData = new ImageData(
       this.VIDEO_WIDTH * this.scale,
@@ -31,6 +35,50 @@ export class PPU {
   clear() {
     this.display.fill(0);
     this.render();
+  }
+
+  private validateVRAMAddress(address: number): boolean {
+    return (
+      address >= this.ADDRESSES.VRAM.START && address <= this.ADDRESSES.VRAM.END
+    );
+  }
+
+  private validateOAMAddress(address: number): boolean {
+    return (
+      address >= this.ADDRESSES.OAM.START && address <= this.ADDRESSES.OAM.END
+    );
+  }
+
+  getVRAMByte(address: number) {
+    if (!this.validateVRAMAddress(address)) {
+      throw new Error(`Invalid VRAM address: ${address.toString(16)}`);
+    }
+
+    return this.VRAM[address - this.ADDRESSES.VRAM.START];
+  }
+
+  setVRAMByte(address: number, value: number) {
+    if (!this.validateVRAMAddress(address)) {
+      throw new Error(`Invalid VRAM address: ${address.toString(16)}`);
+    }
+
+    this.VRAM[address - this.ADDRESSES.VRAM.START] = value;
+  }
+
+  getOAMByte(address: number) {
+    if (!this.validateOAMAddress(address)) {
+      throw new Error(`Invalid OAM address: ${address.toString(16)}`);
+    }
+
+    return this.OAM[address - this.ADDRESSES.OAM.START];
+  }
+
+  setOAMByte(address: number, value: number) {
+    if (!this.validateOAMAddress(address)) {
+      throw new Error(`Invalid OAM address: ${address.toString(16)}`);
+    }
+
+    this.OAM[address - this.ADDRESSES.OAM.START] = value;
   }
 
   public getPixel(x: number, y: number): number {

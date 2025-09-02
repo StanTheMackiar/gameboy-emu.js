@@ -1,4 +1,5 @@
-export const APU_MASK: Uint8Array = new Uint8Array([
+// apu.const.ts
+export const APU_MASK = new Uint8Array([
   0x80,
   0x3f,
   0x00,
@@ -22,6 +23,4 @@ export const APU_MASK: Uint8Array = new Uint8Array([
   0x00,
   0x00,
   0x70, // NR50–NR52
-  ...new Array(9).fill(0xff), // unused/FF
-  ...new Array(16).fill(0x00), // Wave RAM
 ]);
