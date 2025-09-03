@@ -70,7 +70,7 @@ export const IO_MAP = {
     START: 0xff30,
     END: 0xff3f,
   },
-  LCD_STATUS_POSITION_SCROLL_PALETTES: {
+  PPU: {
     START: 0xff40,
     END: 0xff4b,
   },
@@ -98,4 +98,11 @@ export const IO_MAP = {
     END: 0xff7f,
     CGB: true,
   },
+};
+
+export const IO_TIMER_ADDRESSES = {
+  DIV: 0xff04,
+  TIMA: 0xff05,
+  TMA: 0xff06,
+  TAC: 0xff07,
 };

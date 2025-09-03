@@ -3,8 +3,9 @@ import type { EmulatorConfig } from "../utils/interfaces/emu-config.interface";
 import { Cartridge } from "./cartridge";
 import { CPU } from "./cpu";
 import { APU } from "./io/apu";
+import { BootROMControl } from "./io/boot-rom";
+import { Interrupts } from "./io/interrupts";
 import { Joypad } from "./io/joypad";
-import { Serial } from "./io/serial";
 import { Timer } from "./io/timer";
 import { MMU } from "./mmu";
 import { PPU } from "./ppu";
@@ -18,8 +19,9 @@ export class GameBoyEmulator {
   private cpu: CPU;
   private apu: APU;
   private timer: Timer;
-  private serial: Serial;
+  private interrupts: Interrupts;
   private joypad: Joypad;
+  private bootRom: BootROMControl;
 
   config: EmulatorConfig = {
     TIMER_HZ: 60,
@@ -31,9 +33,10 @@ export class GameBoyEmulator {
     this.ppu = new PPU(canvas);
     this.apu = new APU();
     this.ram = new RAM();
+    this.interrupts = new Interrupts();
     this.timer = new Timer();
-    this.serial = new Serial();
     this.joypad = new Joypad();
+    this.bootRom = new BootROMControl();
 
     this.mmu = new MMU(
       this.rom,
@@ -41,8 +44,9 @@ export class GameBoyEmulator {
       this.apu,
       this.ram,
       this.timer,
-      this.serial,
-      this.joypad
+      this.interrupts,
+      this.joypad,
+      this.bootRom
     );
 
     this.cpu = new CPU(this.mmu);

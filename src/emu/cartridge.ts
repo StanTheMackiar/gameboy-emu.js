@@ -31,4 +31,19 @@ export class Cartridge {
 
     return 0xff;
   }
+
+  setRom0Byte(address: number, value: number): void {
+    if (address >= MEMORY_MAP.ROM_0.START && address <= MEMORY_MAP.ROM_0.END) {
+      this.ROM_0[address - MEMORY_MAP.ROM_0.START] = value;
+    }
+  }
+
+  setExternalRamByte(address: number, value: number): void {
+    if (
+      address >= MEMORY_MAP.EXTERNAL_RAM.START &&
+      address <= MEMORY_MAP.EXTERNAL_RAM.END
+    ) {
+      this.EXTERNAL_RAM[address - MEMORY_MAP.EXTERNAL_RAM.START] = value;
+    }
+  }
 }

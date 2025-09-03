@@ -1,13 +1,28 @@
-import { IO_MAP } from "../../utils/const/memory-map.const";
-
 export class Joypad {
-  private registers = new Uint8Array(1); // 0xFF00
+  JOYPAD_INIT = 0xcf; //0b1100 1111
+  private joypad!: number;
 
-  readByte(address: number): number {
-    return this.registers[address - IO_MAP.JOYPAD.START];
+  constructor() {
+    this.reset();
   }
 
-  writeByte(address: number, value: number): void {
-    this.registers[address - IO_MAP.JOYPAD.START] = value;
+  reset() {
+    this.joypad = this.JOYPAD_INIT;
+  }
+
+  getByte(): number {
+    return this.joypad;
+  }
+
+  setByte(value: number): void {
+    this.joypad = value;
+  }
+
+  pressButton(button: number): void {
+    this.joypad |= button;
+  }
+
+  releaseButton(button: number): void {
+    this.joypad &= ~button;
   }
 }

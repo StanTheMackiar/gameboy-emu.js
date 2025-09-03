@@ -35,4 +35,9 @@ export class RAM {
       return;
     }
   }
+
+  public reset(): void {
+    this.WRAM.fill(0);
+    this.HRAM.fill(0);
+  }
 }

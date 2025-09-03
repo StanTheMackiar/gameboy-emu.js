@@ -20,7 +20,7 @@ export const APU_MASK = new Uint8Array([
   0x00,
   0x00,
   0xbf, // NR40–NR44
-  0x00,
-  0x00,
-  0x70, // NR50–NR52
+  0x77,
+  0xf3,
+  0xf1, // NR50–NR52
 ]);
