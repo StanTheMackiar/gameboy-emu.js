@@ -18,7 +18,9 @@ export class MMU {
     private interrupts: Interrupts,
     private joypad: Joypad,
     private bootRom: BootROMControl
-  ) {}
+  ) {
+    this.loadIORegisters();
+  }
 
   readByte(addr: number): number {
     addr &= 0xffff; // 16 bits mask
