@@ -9,7 +9,6 @@ export class Cartridge {
 
   public loadRom(romData: Uint8Array) {
     this.ROM_0.set(romData.slice(0, 0x4000));
-    this.ROM_N.set(romData.slice(0x4000, 0x8000));
   }
 
   getRomByte(address: number): number {

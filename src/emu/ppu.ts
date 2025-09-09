@@ -8,17 +8,11 @@ export class PPU {
   private VRAM = new Uint8Array(0x2000); // 0x8000–0x9FFF
   private OAM = new Uint8Array(0xa0); // 0xFE00–0xFE9F
 
-  private display: Uint8Array;
-  private imageData: ImageData;
   private readonly ctx: CanvasRenderingContext2D;
 
-  constructor(canvas: HTMLCanvasElement, private readonly scale: number = 4) {
-    this.display = new Uint8Array(this.VIDEO_WIDTH * this.VIDEO_HEIGHT);
-    this.imageData = new ImageData(
-      this.VIDEO_WIDTH * this.scale,
-      this.VIDEO_HEIGHT * this.scale
-    );
+  private lastCycles = 0;
 
+  constructor(canvas: HTMLCanvasElement, private readonly scale: number = 4) {
     canvas.width = this.VIDEO_WIDTH * this.scale;
     canvas.height = this.VIDEO_HEIGHT * this.scale;
 
@@ -28,7 +22,7 @@ export class PPU {
   clear() {
     this.IORegister.fill(0);
     this.OAM.fill(0);
-    this.display.fill(0);
+    this.lastCycles = 0;
     this.render();
   }
 
@@ -42,6 +36,16 @@ export class PPU {
 
   private validateIOAddress(address: number): boolean {
     return address >= IO_MAP.PPU.START && address <= IO_MAP.PPU.END;
+  }
+
+  tick(stepCycles: number) {
+    this.lastCycles += stepCycles;
+
+    if (this.lastCycles >= 70224) {
+      this.lastCycles -= 70224;
+      // New frame
+      this.render();
+    }
   }
 
   getIOByte(address: number) {
@@ -110,43 +114,12 @@ export class PPU {
     this.OAM[address - MEMORY_MAP.OAM.START] = value;
   }
 
-  public getPixel(x: number, y: number): number {
-    x = x % this.VIDEO_WIDTH;
-    y = y % this.VIDEO_HEIGHT;
-    const index = y * this.VIDEO_WIDTH + x;
-    return this.display[index];
-  }
-
-  public setPixel(x: number, y: number, color: number) {
-    x = x % this.VIDEO_WIDTH;
-    y = y % this.VIDEO_HEIGHT;
-    const index = y * this.VIDEO_WIDTH + x;
-    this.display[index] = color;
-  }
-
   public render() {
-    const data = this.imageData.data;
-
-    for (let y = 0; y < this.VIDEO_HEIGHT; y++) {
-      for (let x = 0; x < this.VIDEO_WIDTH; x++) {
-        const pixel = this.getPixel(x, y);
-
-        // Escalar el píxel en bloques de `scale x scale`
-        for (let dy = 0; dy < this.scale; dy++) {
-          for (let dx = 0; dx < this.scale; dx++) {
-            const px =
-              (y * this.scale + dy) * (this.VIDEO_WIDTH * this.scale) +
-              (x * this.scale + dx);
-            const idx = px * 4;
-            data[idx] = pixel; // R
-            data[idx + 1] = pixel; // G
-            data[idx + 2] = pixel; // B
-            data[idx + 3] = 0xff; // A
-          }
-        }
-      }
-    }
-
-    this.ctx.putImageData(this.imageData, 0, 0);
+    this.ctx.fillRect(
+      0,
+      0,
+      this.VIDEO_WIDTH * this.scale,
+      this.VIDEO_HEIGHT * this.scale
+    );
   }
 }

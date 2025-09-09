@@ -100,7 +100,7 @@ export const IO_MAP = {
   },
 };
 
-export const IO_TIMER_ADDRESSES = {
+export const TIMER_ADDRESSES = {
   DIV: 0xff04,
   TIMA: 0xff05,
   TMA: 0xff06,

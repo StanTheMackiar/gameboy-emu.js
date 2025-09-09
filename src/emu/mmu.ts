@@ -10,13 +10,13 @@ import type { RAM } from "./ram";
 
 export class MMU {
   constructor(
-    private rom: Cartridge,
-    private ppu: PPU,
-    private apu: APU,
-    private ram: RAM,
-    private timer: Timer,
-    private interrupts: Interrupts,
-    private joypad: Joypad,
+    public rom: Cartridge,
+    public ppu: PPU,
+    public apu: APU,
+    public ram: RAM,
+    public timer: Timer,
+    public interrupts: Interrupts,
+    public joypad: Joypad,
     private bootRom: BootROMControl
   ) {
     this.loadIORegisters();

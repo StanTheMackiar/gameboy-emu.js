@@ -1,5 +1,4 @@
 import { CPUStatusEnum } from "../utils/enum/cpu-status.enum";
-import type { EmulatorConfig } from "../utils/interfaces/emu-config.interface";
 import { Cartridge } from "./cartridge";
 import { CPU } from "./cpu";
 import { APU } from "./io/apu";
@@ -23,10 +22,9 @@ export class GameBoyEmulator {
   private joypad: Joypad;
   private bootRom: BootROMControl;
 
-  config: EmulatorConfig = {
-    TIMER_HZ: 60,
-    STEPS_BY_FRAME: 10,
-  };
+  FRAME_DURATION_MS = 1000 / 60;
+  CYCLES_PER_FRAME = 70224;
+  lastFrameAt = 0;
 
   constructor(canvas: HTMLCanvasElement) {
     this.rom = new Cartridge();
@@ -34,7 +32,7 @@ export class GameBoyEmulator {
     this.apu = new APU();
     this.ram = new RAM();
     this.interrupts = new Interrupts();
-    this.timer = new Timer();
+    this.timer = new Timer(this.interrupts);
     this.joypad = new Joypad();
     this.bootRom = new BootROMControl();
 
@@ -58,13 +56,48 @@ export class GameBoyEmulator {
       return;
     }
 
-    for (let i = 0; i < this.config.STEPS_BY_FRAME; i++) {
-      const { status } = this.cpu.step();
-      if (status !== CPUStatusEnum.RUNNING) break;
+    let cyclesThisFrame = 0;
+
+    const now = performance.now();
+    const elapsed = now - this.lastFrameAt;
+
+    if (elapsed < this.FRAME_DURATION_MS) {
+      requestAnimationFrame(this.loop.bind(this));
+      return;
     }
+
+    while (cyclesThisFrame < this.CYCLES_PER_FRAME) {
+      const { status, stepCycles } = this.cpu.step();
+      if (status !== CPUStatusEnum.RUNNING) break;
+
+      cyclesThisFrame += stepCycles;
+
+      this.timer.tick(stepCycles);
+      this.ppu.tick(stepCycles);
+
+      const pendingInterrupt = this.mmu.interrupts.getPendingInterrupt();
+      if (pendingInterrupt !== null) {
+        this.cpu.handleInterrupt(pendingInterrupt);
+      }
+    }
+
+    this.lastFrameAt += this.FRAME_DURATION_MS;
 
     this.ppu.render();
     requestAnimationFrame(this.loop.bind(this));
+  }
+
+  public reset() {
+    this.cpu.reset();
+  }
+
+  public stop() {
+    this.cpu.stop();
+  }
+
+  public loadRom(romData: Uint8Array) {
+    this.reset();
+    this.rom.loadRom(romData);
   }
 
   public start() {

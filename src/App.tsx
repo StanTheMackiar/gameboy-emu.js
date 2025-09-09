@@ -1,14 +1,36 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { GameBoyEmulator } from "./emu/gameboy";
 
 function App() {
   const canvas = useRef<HTMLCanvasElement>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    const emu = new GameBoyEmulator(canvas.current!);
+  const [romSelected, setRomSelected] = useState<File | null>(null);
 
-    emu.start();
+  const emu = useRef<GameBoyEmulator>(new GameBoyEmulator(canvas.current!));
+
+  useEffect(function startEmu() {
+    emu.current.start();
   }, []);
+
+  const onChangeFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const fileNamesAccepted = [".gb"];
+
+    if (!fileNamesAccepted.some((ext) => file.name.endsWith(ext))) {
+      alert("Formato inválido. Solo se permiten archivos .gb");
+      setRomSelected(null);
+      return;
+    }
+
+    setRomSelected(file);
+    const arrayBuffer = await file.arrayBuffer();
+    const romData = new Uint8Array(arrayBuffer);
+
+    emu.current.loadRom(romData);
+  };
 
   return (
     <>
@@ -17,7 +39,23 @@ function App() {
         <h6>By: StanTheMackiar</h6>
       </header>
 
-      <canvas ref={canvas} />
+      <main>
+        <section className="flex flex-row items-center gap-2 mb-4">
+          <input
+            value={romSelected?.name || ""}
+            onChange={onChangeFile}
+            hidden
+            type="file"
+            id="romInput"
+            accept=".gb"
+          />
+
+          <button onClick={() => fileInput.current?.click()} id="loadBtn">
+            Load ROM
+          </button>
+        </section>
+        <canvas ref={canvas} />
+      </main>
     </>
   );
 }
