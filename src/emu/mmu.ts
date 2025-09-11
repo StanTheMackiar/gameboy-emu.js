@@ -10,7 +10,7 @@ import type { RAM } from "./ram";
 
 export class MMU {
   constructor(
-    public rom: Cartridge,
+    public cartridge: Cartridge,
     public ppu: PPU,
     public apu: APU,
     public ram: RAM,
@@ -18,19 +18,24 @@ export class MMU {
     public interrupts: Interrupts,
     public joypad: Joypad,
     private bootRom: BootROMControl
-  ) {
-    this.loadIORegisters();
-  }
+  ) {}
 
   readByte(addr: number): number {
     addr &= 0xffff; // 16 bits mask
 
+    // Si la Boot ROM está activa, se lee de ahí en 0x0000-0x00FF
+    if (this.bootRom.isEnabled() && addr < 0x100) {
+      console.log("bootrom" + addr.toString(16));
+      return this.bootRom.readByte(addr);
+    }
+
     if (addr <= MEMORY_MAP.ROM_0.END) {
-      return this.rom.getRomByte(addr);
+      console.log("rom0" + addr.toString(16));
+      return this.cartridge.getRomByte(addr);
     }
 
     if (addr <= MEMORY_MAP.ROM_N.END) {
-      return this.rom.getRomByte(addr);
+      return this.cartridge.getRomByte(addr);
     }
 
     if (addr <= MEMORY_MAP.VRAM.END) {
@@ -38,7 +43,7 @@ export class MMU {
     }
 
     if (addr <= MEMORY_MAP.EXTERNAL_RAM.END) {
-      return this.rom.getExternalRamByte(addr);
+      return this.cartridge.getExternalRamByte(addr);
     }
 
     if (addr <= MEMORY_MAP.WRAM.END) {
@@ -91,8 +96,8 @@ export class MMU {
         return 0xff;
       }
 
-      if (addr <= IO_MAP.BOOT_ROM.END) {
-        return this.bootRom.getIORegister();
+      if (addr <= IO_MAP.BOOT_ROM_DISABLE.END) {
+        return this.bootRom.isEnabled() ? 0x01 : 0x00;
       }
 
       if (addr <= IO_MAP.WRAM_BANK_SELECT.END) {
@@ -117,9 +122,7 @@ export class MMU {
     value &= 0xff; // 8 bits mask
 
     if (addr <= MEMORY_MAP.ROM_N.END) {
-      console.warn("Attempt to write to ROM at address", addr.toString(16));
-
-      return;
+      return this.cartridge.setRom0Byte(addr, value);
     } // ROM
 
     if (addr <= MEMORY_MAP.VRAM.END) {
@@ -127,7 +130,7 @@ export class MMU {
     }
 
     if (addr <= MEMORY_MAP.EXTERNAL_RAM.END) {
-      return this.rom.setExternalRamByte(addr, value);
+      return this.cartridge.setExternalRamByte(addr, value);
     }
 
     if (addr <= MEMORY_MAP.WRAM.END) {
@@ -186,8 +189,10 @@ export class MMU {
         return;
       }
 
-      if (addr <= IO_MAP.BOOT_ROM.END) {
-        return this.bootRom.setIORegister(value);
+      // desactivar Boot ROM escribiendo 1 en 0xFF50
+      if (addr === IO_MAP.BOOT_ROM_DISABLE.END) {
+        if (value !== 0) this.bootRom.disable();
+        return;
       }
 
       if (addr <= IO_MAP.WRAM_BANK_SELECT.END) {
@@ -214,32 +219,10 @@ export class MMU {
   }
 
   public reset() {
+    this.timer.reset();
+    this.bootRom.reset();
+    this.interrupts.reset();
     this.ram.reset();
     this.ppu.clear();
-
-    this.loadIORegisters();
-  }
-
-  loadIORegisters() {
-    // Valores iniciales de IO registers
-    this.writeByte(0xff10, 0x80); // NR10
-    this.writeByte(0xff11, 0xbf);
-    this.writeByte(0xff12, 0xf3);
-    this.writeByte(0xff14, 0xbf);
-    this.writeByte(0xff16, 0x3f);
-    this.writeByte(0xff19, 0xbf);
-    this.writeByte(0xff1a, 0x7f);
-    this.writeByte(0xff1c, 0x9f);
-    this.writeByte(0xff1e, 0xbf);
-    this.writeByte(0xff20, 0xff);
-    this.writeByte(0xff23, 0xbf);
-    this.writeByte(0xff24, 0x77);
-    this.writeByte(0xff25, 0xf3);
-    this.writeByte(0xff26, 0xf1);
-    this.writeByte(0xff40, 0x91);
-    this.writeByte(0xff47, 0xfc);
-    this.writeByte(0xff48, 0xff);
-    this.writeByte(0xff49, 0xff);
-    this.writeByte(0xffff, 0x00); // IE
   }
 }

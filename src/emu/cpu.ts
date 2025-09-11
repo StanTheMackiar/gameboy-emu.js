@@ -56,13 +56,11 @@ import {
 import type { MMU } from "./mmu";
 
 export class CPU {
-  PC_START = 0x100;
+  PC_START = 0x000;
   SP_START = 0xfffe;
-  CPU_HZ = 4.19 * 1000000; // 4.19 MHz
 
   public PC: number;
   public SP: number;
-  public IME: boolean = false; // Interrupt Master Enable Flag
 
   public flags = {
     Z: 0,
@@ -255,6 +253,14 @@ export class CPU {
   public step(): { status: CPUStatusEnum; stepCycles: number } {
     this.stepCycles = 0;
 
+    if (!this.mmu.cartridge.hasROM()) {
+      this.status = CPUStatusEnum.STOPPED;
+      this.stop();
+      console.warn("No ROM loaded");
+
+      return { status: this.status, stepCycles: this.stepCycles };
+    }
+
     if (this.status !== CPUStatusEnum.RUNNING) {
       return { status: this.status, stepCycles: this.stepCycles };
     }
@@ -283,7 +289,7 @@ export class CPU {
 
   public handleInterrupt(type: InterruptTypeEnum) {
     // 1. Deshabilitar interrupciones globales
-    this.IME = false;
+    this.mmu.interrupts.IME = false;
 
     // 2. Limpiar el flag de la interrupción atendida
     this.mmu.interrupts.clearInterrupt(type);
@@ -296,7 +302,7 @@ export class CPU {
       case InterruptTypeEnum.VBLANK:
         this.PC = 0x40;
         break;
-      case InterruptTypeEnum.LCD:
+      case InterruptTypeEnum.LCD_STAT:
         this.PC = 0x48;
         break;
       case InterruptTypeEnum.TIMER:
@@ -316,14 +322,6 @@ export class CPU {
     this.mmu.writeByte(this.SP, (value >> 8) & 0xff); // high
     this.SP = (this.SP - 1) & 0xffff;
     this.mmu.writeByte(this.SP, value & 0xff); // low
-  }
-
-  private popWord(): number {
-    const low = this.mmu.readByte(this.SP);
-    this.SP = (this.SP + 1) & 0xffff;
-    const high = this.mmu.readByte(this.SP);
-    this.SP = (this.SP + 1) & 0xffff;
-    return (high << 8) | low;
   }
 
   private executeInstruction(opcode: number) {

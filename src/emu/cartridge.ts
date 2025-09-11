@@ -11,6 +11,10 @@ export class Cartridge {
     this.ROM_0.set(romData.slice(0, 0x4000));
   }
 
+  public hasROM(): boolean {
+    return this.ROM_0.some((byte) => byte !== 0);
+  }
+
   getRomByte(address: number): number {
     if (address >= MEMORY_MAP.ROM_0.START && address <= MEMORY_MAP.ROM_0.END)
       return this.ROM_0[address];

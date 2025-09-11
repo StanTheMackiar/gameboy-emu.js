@@ -79,7 +79,7 @@ export const IO_MAP = {
     END: 0xff4f,
     CGB: true,
   },
-  BOOT_ROM: {
+  BOOT_ROM_DISABLE: {
     START: 0xff50,
     END: 0xff50,
   },
@@ -105,4 +105,19 @@ export const TIMER_ADDRESSES = {
   TIMA: 0xff05,
   TMA: 0xff06,
   TAC: 0xff07,
+};
+
+export const PPU_ADDRESSES = {
+  LCDC: 0xff40,
+  STAT: 0xff41,
+  SCY: 0xff42,
+  SCX: 0xff43,
+  LY: 0xff44,
+  LYC: 0xff45,
+  DMA: 0xff46,
+  BGP: 0xff47,
+  OBP0: 0xff48,
+  OBP1: 0xff49,
+  WY: 0xff4a,
+  WX: 0xff4b,
 };

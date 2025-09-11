@@ -11,7 +11,7 @@ import { PPU } from "./ppu";
 import { RAM } from "./ram";
 
 export class GameBoyEmulator {
-  private rom: Cartridge;
+  private cartridge: Cartridge;
   private mmu: MMU;
   private ram: RAM;
   private ppu: PPU;
@@ -27,17 +27,17 @@ export class GameBoyEmulator {
   lastFrameAt = 0;
 
   constructor(canvas: HTMLCanvasElement) {
-    this.rom = new Cartridge();
-    this.ppu = new PPU(canvas);
+    this.cartridge = new Cartridge();
+    this.interrupts = new Interrupts();
     this.apu = new APU();
     this.ram = new RAM();
-    this.interrupts = new Interrupts();
+    this.ppu = new PPU(canvas, this.interrupts);
     this.timer = new Timer(this.interrupts);
     this.joypad = new Joypad();
     this.bootRom = new BootROMControl();
 
     this.mmu = new MMU(
-      this.rom,
+      this.cartridge,
       this.ppu,
       this.apu,
       this.ram,
@@ -70,8 +70,6 @@ export class GameBoyEmulator {
       const { status, stepCycles } = this.cpu.step();
       if (status !== CPUStatusEnum.RUNNING) break;
 
-      cyclesThisFrame += stepCycles;
-
       this.timer.tick(stepCycles);
       this.ppu.tick(stepCycles);
 
@@ -79,6 +77,8 @@ export class GameBoyEmulator {
       if (pendingInterrupt !== null) {
         this.cpu.handleInterrupt(pendingInterrupt);
       }
+
+      cyclesThisFrame += stepCycles;
     }
 
     this.lastFrameAt += this.FRAME_DURATION_MS;
@@ -97,7 +97,7 @@ export class GameBoyEmulator {
 
   public loadRom(romData: Uint8Array) {
     this.reset();
-    this.rom.loadRom(romData);
+    this.cartridge.loadRom(romData);
   }
 
   public start() {

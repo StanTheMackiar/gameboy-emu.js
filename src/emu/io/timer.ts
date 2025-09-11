@@ -3,18 +3,16 @@ import { InterruptTypeEnum } from "../../utils/enum/interrupt-type.enum";
 import type { Interrupts } from "./interrupts";
 
 export class Timer {
-  private DIV!: number; // Divider Register
-  private TIMA!: number; // Timer Counter Register
-  private TMA!: number; // Timer Modulo Register
-  private TAC!: number; // Timer Control Register
+  private DIV: number = 0; // Divider Register
+  private TIMA: number = 0; // Timer Counter Register
+  private TMA: number = 0; // Timer Modulo Register
+  private TAC: number = 0xf8; // Timer Control Register
 
   private divCounter: number = 0;
   private timaCounter: number = 0;
   private timaOverflowed: boolean = false;
 
-  constructor(private interrupts: Interrupts) {
-    this.reset();
-  }
+  constructor(private interrupts: Interrupts) {}
 
   reset() {
     this.DIV = 0;
