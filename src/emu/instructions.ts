@@ -36,33 +36,15 @@ export const LDrr = (opcode: number, cpu: CPU) => {
   const src = opcode & 0b111; // bits 0–2
   const dest = (opcode >> 3) & 0b111; // bits 3–5
 
-  const registerDest = cpu.getRegister(dest);
+  const value = cpu.getRegister(src);
+  cpu.setRegister(dest, value);
 
-  if (src === 0b110) {
-    // LD (HL), r
-    cpu.mmu.writeByte(cpu.getHL(), registerDest);
+  // (HL),r o r,(HL) tardan 2 ciclos, el resto 1
+  if (src === 0b110 || dest === 0b110) {
     cpu.setStepCycles(2);
-
-    console.debug(`LD (HL), ${cpu.getRegisterName(dest)}`);
-
-    return;
+  } else {
+    cpu.setStepCycles(1);
   }
-
-  if (dest === 0b110) {
-    // LD r, (HL)
-    cpu.setRegister(src, registerDest);
-    cpu.setStepCycles(2);
-
-    console.debug(`LD ${cpu.getRegisterName(src)}, (HL)`);
-
-    return;
-  }
-
-  //LD r, r
-  cpu.setRegister(src, registerDest);
-  cpu.setStepCycles(1);
-
-  console.debug(`LD ${cpu.getRegisterName(src)}, ${cpu.getRegisterName(dest)}`);
 };
 
 export const LDABC = (cpu: CPU) => {
@@ -384,8 +366,8 @@ export const ADCr = (opcode: number, cpu: CPU) => {
 
   cpu.flags.Z = (result & 0xff) === 0 ? 1 : 0;
   cpu.flags.N = 0;
-  cpu.flags.H = checkHalfCarry8(A, B) ? 1 : 0;
-  cpu.flags.C = checkCarry8(A, B) ? 1 : 0;
+  cpu.flags.H = checkHalfCarry8(A, B, cpu.flags.C) ? 1 : 0;
+  cpu.flags.C = checkCarry8(A, B, cpu.flags.C) ? 1 : 0;
 
   //ADC (HL): Add with carry (indirect HL)
   const isHL = r === 0b110;
@@ -521,8 +503,6 @@ export const CPn = (cpu: CPU) => {
 
   const A = cpu.getRegister(7 /* A */);
   const result = A - n;
-
-  cpu.setRegister(7 /* A */, result);
 
   cpu.flags.Z = (result & 0xff) === 0 ? 1 : 0;
   cpu.flags.N = 1;
@@ -692,7 +672,8 @@ export const XORn = (cpu: CPU) => {
 
 //CCF: Complement carry flag
 export const CCF = (cpu: CPU) => {
-  cpu.flags.C = ~cpu.flags.C;
+  cpu.flags.C ^= 1;
+
   cpu.flags.N = 0;
   cpu.flags.H = 0;
 
@@ -708,34 +689,40 @@ export const SCF = (cpu: CPU) => {
   cpu.setStepCycles(1);
 };
 
-//DAA: Decimal adjust accumulator
+// DAA: Decimal Adjust Accumulator
 export const DAA = (cpu: CPU) => {
-  const A = cpu.getRegister(7 /* A */);
+  let A = cpu.getRegister(7 /* A */);
   const isNegative = cpu.flags.N === 1;
   const isHalfCarry = cpu.flags.H === 1;
   const isCarry = cpu.flags.C === 1;
 
   let adjustment = 0;
+  let setCarry = false;
 
   if (isNegative) {
-    if (isHalfCarry) adjustment -= 0x06;
-    if (isCarry) adjustment -= 0x60;
+    // Corrige después de una resta
+    if (isHalfCarry) adjustment |= 0x06;
+    if (isCarry) adjustment |= 0x60;
+    A = (A - adjustment) & 0xff;
   } else {
-    if (isHalfCarry || (A & 0x0f) > 0x09) adjustment += 0x06;
+    // Corrige después de una suma
+    if (isHalfCarry || (A & 0x0f) > 0x09) adjustment |= 0x06;
     if (isCarry || A > 0x99) {
-      adjustment += 0x60;
-      cpu.flags.C = 1;
+      adjustment |= 0x60;
+      setCarry = true;
     }
+    A = (A + adjustment) & 0xff;
   }
 
-  const result = (A + adjustment) & 0xff;
+  cpu.setRegister(7 /* A */, A);
 
-  cpu.setRegister(7 /* A */, result);
-
-  cpu.flags.Z = result === 0 ? 1 : 0;
+  // Flags
+  cpu.flags.Z = A === 0 ? 1 : 0;
   cpu.flags.H = 0;
-
-  cpu.setStepCycles(1);
+  if (setCarry) {
+    cpu.flags.C = 1;
+  }
+  // si no hubo nuevo carry, preservamos el anterior
 };
 
 //CPL: Complement accumulator
@@ -931,4 +918,23 @@ export const RLr = (opcode: number, cpu: CPU) => {
   cpu.flags.N = 0;
   cpu.flags.H = 0;
   cpu.flags.C = b7;
+};
+
+export const RET = (cpu: CPU) => {
+  const addr = cpu.popWord();
+  cpu.PC = addr;
+  cpu.setStepCycles(4);
+};
+
+// --- CALL nn ---
+export const CALLnn = (cpu: CPU, addr: number) => {
+  cpu.pushWord(cpu.PC);
+  cpu.PC = addr;
+  cpu.setStepCycles(6);
+};
+
+// --- JP nn ---
+export const JPnn = (cpu: CPU, addr: number) => {
+  cpu.PC = addr;
+  cpu.setStepCycles(3);
 };

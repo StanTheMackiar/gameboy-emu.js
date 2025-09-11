@@ -317,11 +317,19 @@ export class CPU {
     }
   }
 
-  private pushWord(value: number) {
+  public pushWord(value: number) {
     this.SP = (this.SP - 1) & 0xffff;
     this.mmu.writeByte(this.SP, (value >> 8) & 0xff); // high
     this.SP = (this.SP - 1) & 0xffff;
     this.mmu.writeByte(this.SP, value & 0xff); // low
+  }
+
+  public popWord(): number {
+    const low = this.mmu.readByte(this.SP);
+    this.SP = (this.SP + 1) & 0xffff;
+    const high = this.mmu.readByte(this.SP);
+    this.SP = (this.SP + 1) & 0xffff;
+    return (high << 8) | low;
   }
 
   private executeInstruction(opcode: number) {
